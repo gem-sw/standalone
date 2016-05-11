@@ -26,3 +26,13 @@
 *.exe
 *.out
 *.app
+
+.gitignore~
+*.root
+*.png
+*.pdf
+*.pyc
+*.cc~
+*.h~
+*.py~
+*__init__.py

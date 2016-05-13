@@ -56,7 +56,7 @@ WPOFFS, 0, 0, kapton2+dlc             ! go to bottom of PCB with holes (and read
 CYL4, 0, 0, outdia/2,,,, kapton1      ! Makes volume newvol
 WPOFFS, 0, 0, kapton1                 ! go to top of PCB with holes (and ready to drill in + direction)
 CYL4, 0, 0, outdia/2,,,, dlc          ! Makes volume newvol+1
-WPOFFS, 0, 0, -(kapton2+dlc+kapton1)
+WPOFFS, 0, 0, -(kapton2+kapton1)
 VADD, newvol, newvol+1                ! Makes volume newvol+1+il and frees newvol and newvol+1
 WPOFFS, 0, 0, -coff                   ! move back to original height
 *enddo
@@ -75,7 +75,7 @@ WPOFFS, 0, 0, kapton2+dlc	      ! go to bottom of PCB with holes (and ready to d
 CYL4, 0, 0, outdia/2,,,, kapton1      ! Makes volume newvol
 WPOFFS, 0, 0, kapton1                 ! go to top of PCB with holes (and ready to drill in	+ direction)
 CYL4, 0, 0, outdia/2,,,, dlc          ! Makes volume newvol+1
-WPOFFS,	 0, 0, -(kapton2+dlc+kapton1)
+WPOFFS,	 0, 0, -(kapton2+kapton1)
 VADD, newvol, newvol+1                ! Makes volume newvol+1+nlayer+il and frees newvol and newvol+1
 WPOFFS, 0, 0, -coff                   ! move back to original height
 WPOFFS, -pitch/2, -sqrt(3)*pitch/2, 0 ! move back to initial angle (0,0,0)

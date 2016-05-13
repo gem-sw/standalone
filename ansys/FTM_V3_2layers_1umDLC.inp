@@ -199,9 +199,10 @@ a_field=50 ! amp field 50kV/cm
 d_field=4  ! drift field 4kV/cm
 ! geometry is in mm --> *0.1
 ! conversion kV to V ---> *1000
+! inverse fields ---> *-1
 ground = 0
-amp    = a_field*0.1*kapton1*1000+ground
-drift  = d_field*0.1*drift*1000+amp
+amp    = -1*a_field*0.1*kapton1*1000+ground
+drift  = -1*d_field*0.1*drift*1000+amp
 
 ! Voltage setting :: at ground :: volumes 5,8
 VSEL,S,VOLU,,5

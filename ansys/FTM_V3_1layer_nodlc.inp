@@ -1,0 +1,145 @@
+FINISH  
+/CLEAR,START
+/PREP7  
+! No polynomial elements
+/PMETH,OFF,1
+
+! Set electric preferences
+KEYW,PR_ELMAG,1
+KEYW,MAGELC,1   
+
+! Select element
+ET,1,SOLID123
+
+! Material properties
+MP,PERX,1,1.0      ! Gas dielectric
+MP,PERX,2,4.0      ! Permittivity of FR4
+
+
+! Construct the FTM
+pitch  =  0.500   ! Distance between holes, in mm
+pcb    =  0.200   ! Thickness of the pcb layers in mm
+outdia =  0.200   ! Hole outer diameter, in mm
+middia =  0.200   ! Hole diameter in the centre, in mm
+drift =   1.0     ! Thickness of the drift region
+! induct = -1.0     ! Thickness of the induction gap
+! rim =    0.080    ! Rim diameter, in mm
+
+! Make the gas (1), pcb (2)
+BLOCK, 0, pitch/2, 0, sqrt(3)*pitch/2, 0            , pcb+drift  ! (1) (gas) 
+BLOCK, 0, pitch/2, 0, sqrt(3)*pitch/2, 0            , pcb        ! (2) (pcb) 
+
+
+! Make the cut-out pieces: 3, 4
+CONE, outdia/2, middia/2, 0, pcb, 0, 360
+WPOFFS, pitch/2, sqrt(3)*pitch/2, 0
+CONE, outdia/2, middia/2, 0, pcb, 0, 360
+
+! Subtract from the pcb (is 2, becomes 2)
+VSBV,  2,  3, , , KEEP   ! 2 -> 5   (result is named 5 and 2 is freed) 
+VSBV,  5,  4, , , KEEP   ! 5 -> 2   (result is named 2)
+
+! Delete the holes
+VDEL, 3, 4
+
+! Subtract the pcb from the gas (is 1, becomes 3)
+VSBV,  1, 2, , , KEEP   ! 1 -> 3
+
+! Visualise gas only
+! vsel,s,,,3
+! vplot
+! vsel,all
+
+! Visualise pcb
+! vsel,s,,,2
+! vplot
+! vsel,all
+
+! Glue everything together
+VGLUE, ALL
+
+!       INPUT VOLUMES =     2    3
+!       INPUT VOLUMES WILL BE DELETED IF POSSIBLE
+!       OUTPUT VOLUMES =    2    3
+
+
+! Which leaves us with 2 = pcb, 3 = gas
+/COLOR, VOLU, GREEN, 3
+/COLOR, VOLU, BLUE,  2
+
+! Visualise
+! /SHOW,3D
+! vsel,s,,,2,3
+! vplot
+! vsel,all
+
+! Assign material attributes
+VSEL, S,,, 3  ! volume 9 = gas
+VATT, 1, ,1   ! material 1 = gas
+VSEL, S,,, 2  ! volume 2 = pcb
+VATT, 2, ,1   ! material 2 = pcb
+
+! Voltage boundaries on an area
+ASEL, S, LOC, Z, 0
+DA, ALL, VOLT, 0
+ASEL, S, LOC, Z, pcb
+DA, ALL, VOLT, -1000
+ASEL, S, LOC, Z, pcb+drift
+DA, ALL, VOLT, -1400
+
+
+! Voltage boundaries on a volume
+! VSEL, S,,, 1            ! drift dlc
+! ASLV, S
+! DA, ALL, VOLT, -1400
+! VSEL, S,,, 6            ! amp dlc
+! ASLV, S
+! DA, ALL, VOLT, -1000
+! VSEL, S,,, 7            ! gnd dlc
+! ASLV, S
+! DA, ALL, VOLT, 0
+
+! Meshing options
+! Mesh all
+VSEL, S,,, 1, 9
+ASLV, S
+MSHKEY,0
+SMRT, 1
+VMESH, 1,9
+! Mesh PCB and GAS only
+! MSHKEY,0
+! SMRT, 1
+! VSEL,S,,,2
+! VSEL,A,,,3
+! VMESH,ALL
+
+! Solve the field
+/SOLU
+SOLVE   
+FINISH  
+
+! Display the solution
+/POST1  
+/EFACET,1   
+PLNSOL, VOLT,, 0
+
+! Write the solution to files
+/OUTPUT, PRNSOL, lis
+PRNSOL
+/OUTPUT
+
+/OUTPUT, NLIST, lis
+NLIST,,,,COORD
+/OUTPUT
+
+/OUTPUT, ELIST, lis
+ELIST
+/OUTPUT
+
+/OUTPUT, MPLIST, lis
+MPLIST
+/OUTPUT
+
+
+
+                                                                         

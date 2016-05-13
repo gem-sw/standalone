@@ -1,0 +1,265 @@
+FINISH  
+/CLEAR,START
+/PREP7  
+! No polynomial elements
+/PMETH,OFF,1
+
+! Set electric preferences
+KEYW,PR_ELMAG,1
+KEYW,MAGELC,1   
+
+! Select element
+ET,1,SOLID123
+
+! Material properties
+MP,PERX,1,4        ! Permittivity of DLC
+MP,RSVX,1,600.e6   ! Resistivity of DLC
+MP,PERX,2,1.0      ! Permittivity of Gas
+MP,PERX,3,4.0      ! Permittivity of FR4
+
+! Construct the FTM ... all dimensions in mm
+pitch   = 0.500   ! Distance between holes      (500um)
+kapton1 = 0.200   ! Thickness of PCB with holes (200um)
+kapton2 = 0.200   ! Thickness of PCB support    (200um)
+dlc     = 0.001   ! Thickness of DLC layers       (1um)
+outdia  = 0.200   ! Hole outer diameter         (200um)
+india   = 0.200   ! Hole inner diameter         (200um)    ... FTM V3 has cyl holes
+rim     = 0.080   ! Rim diameter                 (80um)    ... not used for FTM V3
+driVol = 2        ! Total Drift Volume         (2000um)    ... to be changed when changing nlayer
+nlayer = 2        ! Number of layers                       ... FTM V3 had 4 layers
+drift = driVol/nlayer                      !   (1000um)    ... FTM V3 has 1mm for each drift region
+thick = dlc+drift+dlc+kapton2+dlc+kapton1  !   (1403um)    ... total thickness of single layer             
+
+
+! lets start at z=0 and start building up ...
+*do,il,1,nlayer,1
+coff = (il-1)*thick
+BLOCK, 0, pitch/2, 0, sqrt(3)*pitch/2,                           0+coff,                     kapton2+coff  ! support pcb (kapton2)     ---> volumes 1+6*(il-1)
+BLOCK, 0, pitch/2, 0, sqrt(3)*pitch/2,                     kapton2+coff,               1*dlc+kapton2+coff  ! ground (dlc)              ---> volumes 2+6*(il-1)
+BLOCK, 0, pitch/2, 0, sqrt(3)*pitch/2,               1*dlc+kapton2+coff,       kapton1+1*dlc+kapton2+coff  ! pcb with holes (kapton1)  ---> volumes 3+6*(il-1)
+BLOCK, 0, pitch/2, 0, sqrt(3)*pitch/2,       kapton1+1*dlc+kapton2+coff,       kapton1+2*dlc+kapton2+coff  ! amp (dlc)                 ---> volumes 4+6*(il-1)
+BLOCK, 0, pitch/2, 0, sqrt(3)*pitch/2,               1*dlc+kapton2+coff, drift+kapton1+2*dlc+kapton2+coff  ! drift (gas)               ---> volumes 5+6*(il-1)  !!! gas must overlap with PCB(3) and DLC(4)
+BLOCK, 0, pitch/2, 0, sqrt(3)*pitch/2, drift+kapton1+2*dlc+kapton2+coff, drift+kapton1+3*dlc+kapton2+coff  ! cathode (dlc)             ---> volumes 6+6*(il-1)
+*enddo
+ 
+! first hole for each of the layers
+newvol = 6*nlayer+1                   ! each FTM layer consists of 6 layers (see above), next free volume is 6*nlayer+1
+*do, il,1,nlayer,1                    ! loop again over all layers
+coff = (il-1)*thick
+WPOFFS, 0, 0, coff                    ! move to the correct height
+! Make the pieces to substract from pcb and dlc to create the holes
+! conical holes
+! CONE, outdia/2, middia/2,         1*dlc+kapton2+coff, kapton1+1*dlc+kapton2+coff, 0, 360 ! Makes volume newvol
+! CONE, outdia/2, middia/2, kapton1+1*dlc+kapton2+coff, kapton1+2*dlc+kapton2+coff, 0, 360 ! Makes volume newvol+1
+! cylindrical holes: CYCL4 command works with depth, not with zmin,zmax ... therefore we have to use the offset command first
+WPOFFS, 0, 0, kapton2+dlc             ! go to bottom of PCB with holes (and ready to drill in + direction)
+CYL4, 0, 0, outdia/2,,,, kapton1      ! Makes volume newvol
+WPOFFS, 0, 0, kapton1                 ! go to top of PCB with holes (and ready to drill in + direction)
+CYL4, 0, 0, outdia/2,,,, dlc          ! Makes volume newvol+1
+WPOFFS, 0, 0, -(kapton2+dlc+kapton1)
+VADD, newvol, newvol+1                ! Makes volume newvol+1+il and frees newvol and newvol+1
+WPOFFS, 0, 0, -coff                   ! move back to original height
+*enddo
+
+! second hole for each of the layers
+*do, il,1,nlayer,1
+coff = (il-1)*thick
+WPOFFS, pitch/2, sqrt(3)*pitch/2, 0   ! move to the opposite angle of the block
+WPOFFS, 0, 0, coff                    ! move to the right height
+! Make the pieces to substract from pcb and dlc to create the holes
+! conical holes
+! CONE, outdia/2, middia/2,         1*dlc+kapton2+coff, kapton1+1*dlc+kapton2+coff, 0, 360 ! Makes volume newvol
+! CONE, outdia/2, middia/2, kapton1+1*dlc+kapton2+coff, kapton1+2*dlc+kapton2+coff, 0, 360 ! Makes volume newvol+1
+! cylindrical holes: CYCL4 command works with depth, not with zmin,zmax ... therefore we have to use the offset command first
+WPOFFS, 0, 0, kapton2+dlc	      ! go to bottom of PCB with holes (and ready to drill in +	direction)
+CYL4, 0, 0, outdia/2,,,, kapton1      ! Makes volume newvol
+WPOFFS, 0, 0, kapton1                 ! go to top of PCB with holes (and ready to drill in	+ direction)
+CYL4, 0, 0, outdia/2,,,, dlc          ! Makes volume newvol+1
+WPOFFS,	 0, 0, -(kapton2+dlc+kapton1)
+VADD, newvol, newvol+1                ! Makes volume newvol+1+nlayer+il and frees newvol and newvol+1
+WPOFFS, 0, 0, -coff                   ! move back to original height
+WPOFFS, -pitch/2, -sqrt(3)*pitch/2, 0 ! move back to initial angle (0,0,0)
+*enddo
+
+! summary of the situation
+! volumes 1 --> 6*nlayer are the rectangular volumes (pcb/dlc/pcb/dlc/gas/dlc) for each of the layers
+! 6*nlayer and 6*nlayer+1 were used in intermediate steps and are at this point free
+! 6*nlayer+2 --> 7*nlayer+1 are the volumes that we will use to create the first hole at (x,y) = (0,0)
+! 7*nlayer+2 --> 8*nlayer+1 are the volumes that we will use to create the second hole at (x,y) = (pitch/2, sqrt(3)*pitch/2)
+
+*do, il,1,nlayer,1
+kp=3+6*(il-1)  ! counter for PCB with holes (see above)
+dl=4+6*(il-1)  ! counter for DLC with holes (see above)
+! Subtract the two holes from the standard kapton / PCB
+VSBV,  kp, newvol+1+il, , , KEEP              !  first hole substracted: kp -> newvol
+VSBV,  newvol, newvol+1+nlayer+il, , , KEEP   ! second hole substracted: newvol -> kp
+! Subtract the two holes from the dlc
+VSBV,  dl, newvol+1+il, , , KEEP              !  first hole substracted: dl -> newvol
+VSBV,  newvol, newvol+1+nlayer+il, , , KEEP   ! second hole substracted: newvol -> dl
+*enddo
+
+! Delete the holes
+*do, il,1,nlayer,1
+VDEL, newvol+1+il,newvol+1+nlayer+il
+*enddo
+
+! Subtract the standard kapton and dlc from the gas
+*do, il,1,nlayer,1
+kp = 3+6*(il-1) ! counter for PCB with holes (see above)
+dl = 4+6*(il-1) ! counter for DLC with holes (see above)
+ga = 5+6*(il-1) ! counter for GAS (see above)
+VSBV,  ga, kp, , , KEEP       ! gas -> newvol
+VSBV,  newvol, dl, , , KEEP   ! newcol -> gas
+*enddo
+
+! if you want to color at this point you can use these commands
+! *do, il,1,nlayer,1
+! ks = 1+6*(il-1) ! counter for support PCB
+! dg = 2+6*(il-1) ! counter for DLC (ground)
+! kp = 3+6*(il-1) ! counter for PCB with holes
+! dl = 4+6*(il-1) ! counter for DLC (amp)
+! ga = 5+6*(il-1) ! counter for GAS (see above)
+! dd = 6+6*(il-1) ! counter for DLC (drift)
+! /COLOR, VOLU, ORANGE, ks
+! /COLOR, VOLU, RED, dg
+! /COLOR, VOLU, BLUE, kp
+! /COLOR, VOLU, RED, dl
+! /COLOR, VOLU, GREEN, ga
+! /COLOR, VOLU, RED, dd
+! *enddo
+
+! Glue everything together
+! NOORDER    ! reduce confusion after gluing ... keep same order for numbering ... not computationally efficient
+VGLUE, ALL
+NUMCMP,ALL   ! fills all gaps .. creates also a mess in the volume ordering
+
+! Glueing however seems to randomnize the volume numbering :-(
+! Output after VGLUE, ALL (for 2 Layers) but before NUMCMP,ALL:
+! GLUE VOLUMES
+!       INPUT VOLUMES =     1    2    3    4    5    6    7    8    9   10
+!       INPUT VOLUMES =    11   12
+!       INPUT VOLUMES WILL BE DELETED IF POSSIBLE
+!                                                                          
+!       OUTPUT VOLUMES =     1   13   14   15   16   17   18   19   20   21
+!       OUTPUT VOLUMES =    22   23
+! Output after NUMCMP,ALL
+!       OUTPUT VOLUMES =     1    2    3    4    5    6    7    8    9   10
+!       OUTPUT VOLUMES =    11   12
+
+/COLOR, VOLU, ORANGE, 1  ! bottom pcb support
+/COLOR, VOLU, RED, 5     ! bottom dlc ground
+/COLOR, VOLU, BLUE, 6    ! bottom pcb with holes
+/COLOR, VOLU, RED, 7     ! bottom dlc amplification
+/COLOR, VOLU, GREEN, 11  ! bottom gas
+/COLOR, VOLU, RED, 2     ! bottom dlc drift
+/COLOR, VOLU, ORANGE, 3  ! top pcb support
+/COLOR, VOLU, RED, 8     ! top dlc ground
+/COLOR, VOLU, BLUE, 9    ! top  pcb with holes
+/COLOR, VOLU, RED, 10    ! top dlc amplification
+/COLOR, VOLU, GREEN, 12  ! top gas
+/COLOR,	VOLU, RED, 4     ! top dlc drift
+
+! Assign Material attributes to the volumes
+! Now it is important to know which volume is which
+! As far as I know this is a trial and error process
+
+! dlc :: material 1 --- volumes 5,7,2,8,10,4
+VSEL,S,,, 5
+VATT, 1,,1
+VSEL,S,,, 7
+VATT, 1,,1
+VSEL,S,,, 2
+VATT, 1,,1
+VSEL,S,,, 8
+VATT, 1,,1
+VSEL,S,,, 10
+VATT, 1,,1
+VSEL,S,,, 4
+VATT, 1,,1
+
+! pcb :: material 2 --- volumes 1,6,3,9
+VSEL,S,,, 1
+VATT, 2, ,1
+VSEL,S,,, 6
+VATT, 2, ,1
+VSEL,S,,, 3
+VATT, 2, ,1
+VSEL,S,,, 9
+VATT, 2, ,1
+
+! gas :: material 3 --- volumes 11,12
+VSEL,S,,, 11
+VATT, 3, ,1
+VSEL,S,,, 12
+VATT, 3, ,1
+
+! Potentials calculation
+! Field in kV/cm
+a_field=50 ! amp field 50kV/cm
+d_field=4  ! drift field 4kV/cm
+! geometry is in mm --> *0.1
+! conversion kV to V ---> *1000
+ground = 0
+amp    = a_field*0.1*kapton1*1000+ground
+drift  = d_field*0.1*drift*1000+amp
+
+! Voltage setting :: at ground :: volumes 5,8
+VSEL,S,VOLU,,5
+ASLV,S
+DA,ALL,VOLT,ground
+VSEL,S,VOLU,,8
+ASLV,S
+DA,ALL,VOLT,ground
+
+! Voltage setting :: at amp :: volumes 7,10
+VSEL,S,VOLU,,7
+ASLV,S
+DA,ALL,VOLT,amp
+VSEL,S,VOLU,,10
+ASLV,S
+DA,ALL,VOLT,amp
+
+! Voltage setting :: at drift :: volumes 2,4
+VSEL,S,VOLU,,2
+ASLV,S
+DA,ALL,VOLT,drift
+VSEL,S,VOLU,,4
+ASLV,S
+DA,ALL,VOLT,drift
+
+! Meshing options
+VSEL,S,,,1,12
+ASLV,S
+MSHKEY,0
+SMRT,5
+VMESH,1,12
+
+! Solve the field
+/SOLY
+SOLVE
+FINISH
+
+! Display the solution
+/POST1
+/EFACET,1
+PLNSOL,VOLT,,0
+
+! Write the solution to a file
+/OUTPUT, PRNSOL, lis  !	file with name PRNSOL.lis
+PRNSOL
+/OUTPUT
+
+! Write the list of nodes to a file
+/OUTPUT, NLIST, lis   !	file with name NLIST.lis
+NLIST,,,,COORD
+/OUTPUT
+
+! Write the list of elements to a file
+/OUTPUT, ELIST, lis   ! file with name ELIST.lis
+ELIST
+/OUTPUT
+
+! Write the material properties to a file
+/OUTPUT, MPLIST, lis  ! file with name MPLIST.lis
+MPLIST
+/OUTPUt

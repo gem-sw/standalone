@@ -1,0 +1,29 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Overview of the models in this directory
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+FTM_V3_1layers_noDLC.inp                   --> models without dlc / electrodes
+FTM_V3_2layers_noDLC.inp                   --> i believe they are not correct because
+FTM_V3_2layers_noDLC_checkstructure.inp    --> HV is set over the entire AREA, so also over the hole ...
+
+FTM_V1_1layers_noDLC.inp		   --> approach to implement FTM v1 (50um kapton, conical hole)
+FTM_V1_1layers_noDLC_workinprogress.inp    --> but with with wrong assumption as above ...
+                                           --> to be discareded
+
+
+FTM_V3_2layers_25umXC_v0.inp                  --> original, works only if one meshes all ... 
+FTM_V3_2layers_25umXC_v0_checkstructure.inp   --> meshing only GAS & PI does not work because of
+                                              --> forgotten lines (for all meshing strategies):
+                                              --> VSEL, S,,,1,12
+                                              --> ASLV, S
+FTM_V3_2layers_25umXC_v1.inp                  --> model with PI+DLC+PI+DLC+GAS+DLC (6 layers)
+                                              --> works also when meshing only GAS & PI
+
+FTM_V3_2layers_25umXC_v2.inp                  --> model with PI+PI+DLC+GAS (4 layers)
+FTM_V3_2layers_25umXC_v2_checkstructure.inp   --> works also when meshing only GAS & PI
+
+
+FTM_V3_2layers_10nmXC_v1.inp                  --> model v1 (6 layers: PI+DLC+PI+DLC+GAS+DLC)
+                                              --> with 10nm dlc instead of 25um XC kapton
+                                              --> gives some computational issues
+                                              --> we will need to try again with 100nm dlc

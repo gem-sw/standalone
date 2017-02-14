@@ -1,0 +1,114 @@
+FINISH  
+/CLEAR,START
+/PREP7  
+! No polynomial elements
+/PMETH,OFF,1
+
+! Set electric preferences
+KEYW,PR_ELMAG,1
+KEYW,MAGELC,1   
+
+! Select element
+ET,1,SOLID123
+
+! Material properties
+MP,PERX,1,1.0      ! Permittivity of Gas
+MP,PERX,2,4.0      ! Permittivity of FR4
+
+! Construct the FTM ... all dimensions in mm
+pitch   = 0.500   ! Distance between holes      (500um)
+kapton1 = 0.200   ! Thickness of PCB with holes (200um)
+kapton2 = 0.200   ! Thickness of PCB support    (200um)
+outdia  = 0.200   ! Hole outer diameter         (200um)
+india   = 0.200   ! Hole inner diameter         (200um)    ... FTM V3 has cyl holes
+driVol = 2        ! Total Drift Volume         (2000um)    ... to be changed when changing nlayer
+nlayer = 2        ! Number of layers                       ... FTM V3 had 4 layers
+drift = driVol/nlayer                      !   (1000um)    ... FTM V3 has 1mm for each drift region
+thick = drift+kapton2+kapton1              !   (1400um)    ... total thickness of single layer             
+
+
+! lets start at z=0 and start building up ...
+*do,il,1,nlayer,1
+coff = (il-1)*thick
+BLOCK, 0, pitch/2, 0, sqrt(3)*pitch/2,       0+coff,               kapton2+coff  ! support pcb (kapton2)     ---> volumes 1+6*(il-1)
+BLOCK, 0, pitch/2, 0, sqrt(3)*pitch/2, kapton2+coff,       kapton1+kapton2+coff  ! pcb with holes (kapton1)  ---> volumes 3+6*(il-1)
+BLOCK, 0, pitch/2, 0, sqrt(3)*pitch/2, kapton2+coff, drift+kapton1+kapton2+coff  ! drift (gas)               ---> volumes 5+6*(il-1)  !!! gas must overlap with PCB(2)
+*enddo
+ 
+! first hole for each of the layers
+newvol = 3*nlayer+1                   ! each FTM layer consists of 3 layers (see above), next free volume is 3*nlayer+1
+*do, il,1,nlayer,1                    ! loop again over all layers
+coff = (il-1)*thick
+WPOFFS, 0, 0, coff                    ! move to the correct height
+! Make the pieces to substract from pcb and dlc to create the holes
+! conical holes
+! CONE, outdia/2, middia/2, kapton2+coff, kapton1+kapton2+coff, 0, 360 ! Makes volume newvol+(il-1)
+! cylindrical holes: CYCL4 command works with depth, not with zmin,zmax ... therefore we have to use the offset command first
+WPOFFS, 0, 0, kapton2                 ! go to bottom of PCB with holes (and ready to drill in + direction)
+CYL4, 0, 0, outdia/2,,,, kapton1      ! Makes volume newvol+(il-1)
+WPOFFS, 0, 0, -(kapton2)
+WPOFFS, 0, 0, -coff                   ! move back to original height
+*enddo
+
+! second hole for each of the layers
+*do, il,1,nlayer,1
+coff = (il-1)*thick
+WPOFFS, pitch/2, sqrt(3)*pitch/2, 0   ! move to the opposite angle of the block
+WPOFFS, 0, 0, coff                    ! move to the right height
+! Make the pieces to substract from pcb and dlc to create the holes
+! conical holes
+! CONE, outdia/2, middia/2, kapton2+coff, kapton1+kapton2+coff, 0, 360 ! Makes volume newvol+(il-1)
+! cylindrical holes: CYCL4 command works with depth, not with zmin,zmax ... therefore we have to use the offset command first
+WPOFFS, 0, 0, kapton2    	      ! go to bottom of PCB with holes (and ready to drill in +	direction)
+CYL4, 0, 0, outdia/2,,,, kapton1      ! Makes volume newvol+nlayer+(il-1)
+WPOFFS,	 0, 0, -(kapton2)
+WPOFFS, 0, 0, -coff                   ! move back to original height
+WPOFFS, -pitch/2, -sqrt(3)*pitch/2, 0 ! move back to initial angle (0,0,0)
+*enddo
+
+! summary of the situation
+! volumes 1 --> 3*nlayer are the rectangular volumes (pcb/pcb/gas) for each of the layers
+! 3*nlayer+1 --> 4*nlayer are the volumes that we will use to create the first hole at (x,y) = (0,0)
+! 4*nlayer+1 --> 5*nlayer are the volumes that we will use to create the second hole at (x,y) = (pitch/2, sqrt(3)*pitch/2)
+
+*do, il,1,nlayer,1
+kp=2+3*(il-1)  ! counter for PCB with holes (see above)
+! Subtract the two holes from the standard kapton / PCB
+VSBV,  kp, newvol+(il-1), , , KEEP              !  first hole substracted: kp -> newvol+2*nlayer
+VSBV,  newvol+2*nlayer, newvol+nlayer+(il-1), , , KEEP   ! second hole substracted: newvol+2*nlayer+1 -> kp
+*enddo
+
+! Delete the holes
+*do, il,1,nlayer,1
+VDEL, newvol+(il-1),newvol+nlayer+(il-1)
+*enddo
+
+! Subtract the standard kapton and dlc from the gas
+*do, il,1,nlayer,1
+kp = 2+3*(il-1) ! counter for PCB with holes (see above)
+ga = 3+3*(il-1) ! counter for GAS (see above)
+VSBV,  ga, kp, , , KEEP       ! gas -> ??? ... this is a bit more complicated ... first gas volume will go to volume newvol+2*nlayer+1, 2nd gas volume --> 1st gas volume, 3rd --> 2nd, etc ...
+*enddo
+
+! Glue everything together
+! NOORDER    ! reduce confusion after gluing ... keep same order for numbering ... not computationally efficient
+VGLUE, ALL
+NUMCMP,ALL   ! fills all gaps .. creates also a mess in the volume ordering
+
+! Glueing however seems to randomnize the volume numbering :-(
+! Output after VGLUE, ALL (for 2 Layers) but before NUMCMP,ALL:
+! GLUE VOLUMES
+!       INPUT VOLUMES =     1    2    3    4    5    7
+!       INPUT VOLUMES WILL BE DELETED IF POSSIBLE
+!       OUTPUT VOLUMES =     3    6    8    9   10   11
+! Output after NUMCMP,ALL
+!       OUTPUT VOLUMES =     1    2    3    4    5    6
+
+
+/COLOR, VOLU, ORANGE, 2  ! bottom pcb support
+/COLOR, VOLU, BLUE, 3    ! bottom pcb with holes
+/COLOR, VOLU, GREEN, 6   ! bottom gas
+/COLOR, VOLU, ORANGE, 4  ! top pcb support
+/COLOR, VOLU, BLUE, 5    ! top  pcb with holes
+/COLOR, VOLU, GREEN, 1   ! top gas
+

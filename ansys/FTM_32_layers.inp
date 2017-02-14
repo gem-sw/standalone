@@ -1,0 +1,271 @@
+FINISH  
+/CLEAR,START
+/PREP7  
+! No polynomial elements
+/PMETH,OFF,1
+
+! Set electric preferences
+KEYW,PR_ELMAG,1
+KEYW,MAGELC,1   
+
+! Select element
+ET,1,SOLID123
+
+! Material properties
+MP,PERX,1,4  ! DLC
+MP,RSVX,1,600.e6   !
+MP,PERX,2,1.0   ! Gas
+MP,PERX,3,4.0   ! Permittivity of FR4
+MP,RSVX,4,1.e6   ! Permittivity of FR4 low res
+MP,PERX,4,4.0   ! Permittivity of FR4 low res
+
+! Construct the GEM
+pitch =  0.140   ! Distance between holes, in mm
+kapton1 = 0.050   ! Thickness of the standard kapton layer, in mm
+kapton2 = 0.025   ! Thickness of the low resist kapton layer, in mm
+!dlc =  0.00002   ! Thickness of the meta layers, 20 nm
+dlc =  0.0005   ! Thickness of the meta layers, 20 nm
+outdia = 0.070   ! Hole outer diameter, in mm
+india = 0.100   ! Hole outer diameter, in mm
+rim =    0.080   ! Rim diameter, in mm
+driVol = 0.5 ! Total Drift Volume
+!nlayer = 2 ! Number of layer
+nlayer = 32 ! Number of layer
+drift = driVol/nlayer
+thick = dlc+drift+kapton2+kapton1
+
+! z = 0 is the middle of the first layer normal kapton
+*do, il,1,nlayer,1
+coff = (il-1)*thick
+! Make std kapton (1), low res kapton (2), dlc(3) and gas (4)
+BLOCK, 0, pitch/2, 0, sqrt(3)*pitch/2, -kapton1/2+coff, kapton1/2+coff
+BLOCK, 0, pitch/2, 0, sqrt(3)*pitch/2, -kapton1/2+coff, -kapton1/2-kapton2+coff
+BLOCK, 0, pitch/2, 0, sqrt(3)*pitch/2, kapton1/2+coff, kapton1/2+dlc+coff
+BLOCK, 0, pitch/2, 0, sqrt(3)*pitch/2, -kapton1/2+coff, kapton1/2+dlc+drift+coff
+*enddo
+
+! first holes on the layers...  17-18 -> 19,20,21,22
+newvol = 4*nlayer+1
+*do, il,1,nlayer,1
+coff = (il-1)*thick
+WPOFFS, 0, 0, coff
+! Make the cut-out pieces: 9-10
+CONE, india/2, outdia/2, -kapton1/2,   kapton1/2, 0, 360
+WPOFFS, 0, 0, kapton1/2
+CYL4,   0, 0, rim/2, ,,, dlc
+WPOFFS, 0, 0, -kapton1/2
+VADD, newvol, newvol+1   ! Makes volume newvol+1+il  and frees newvol and newvol+1
+WPOFFS, 0, 0, -coff
+*enddo
+
+! second holes on the layees  17-18 -> 23,24,25,26
+*do, il,1,nlayer,1
+coff = (il-1)*thick
+WPOFFS, 0, 0, coff
+WPOFFS, pitch/2, sqrt(3)*pitch/2, 0
+CONE, india/2, outdia/2, -kapton1/2,   kapton1/2, 0, 360
+WPOFFS, 0, 0, kapton1/2
+CYL4,   0, 0, rim/2, ,,, dlc
+WPOFFS, 0, 0, -kapton1/2
+VADD, newvol, newvol+1   ! Makes volume newvol++1+nlayer+il  and frees newvol and newvol+1
+WPOFFS, 0, 0, -coff
+WPOFFS, -pitch/2, -sqrt(3)*pitch/2, 0
+*enddo
+
+*do, il,1,nlayer,1
+kp=1+4*(il-1)
+dl=3+4*(il-1)
+! Subtract from the standard kapton (is 1, becomes 1)
+VSBV,  kp,  newvol+1+il, , , KEEP   ! kp -> newvol
+VSBV,  newvol,   newvol+1+nlayer+il, , , KEEP   ! newvol -> kp
+! Subtract from the dlc (is 3, becomes 3)
+VSBV,  dl,  newvol+1+il, , , KEEP   ! dl -> newvol
+VSBV,  newvol,   newvol+1+nlayer+il, , , KEEP   ! newvol -> dl
+*enddo
+
+! Delete the holes
+VDEL, newvol+2,newvol+2+nlayer*2
+
+
+
+*do, il,1,nlayer,1
+ga = 4+(il-1)*4
+kp=1+4*(il-1)
+dl=3+4*(il-1)
+! Subtract the standard kapton and metal from the gas (remains 4)
+VSBV,  ga, kp, , , KEEP   ! gas -> newvol
+VSBV,  newvol, dl, , , KEEP   ! newcol -> gas
+*enddo
+
+! Glue everything together
+VGLUE, ALL
+!  Volumes 1 5 9 10 11 12 13 14
+! 9 low res kaptom
+!---------------- 1  normal kapton
+! 10 dlc
+! 13 gas
+! 11 upper low res kapton
+!------------------  5 uper kapton
+! 12 upper dlc
+! 14 upper gas 
+
+*do, il,1,nlayer,1
+kp = 1+(il-1)*4
+/COLOR, VOLU, ORANGE, kp ! kapton
+/COLOR, VOLU, BLUE, newvol+(il-1)*2 ! low res kapton
+/COLOR, VOLU, RED, newvol+1+(il-1)*2 ! dlc
+/COLOR, VOLU, GREEN, newvol-1+nlayer*2+il ! gas
+*enddo
+
+! Assign material attributes
+!MP,PERX,1,4  ! DLC
+!MP,RSVX,1,600.e6   !
+!MP,PERX,2,1.0   ! Gas
+!MP,PERX,3,4.0   ! Permittivity of FR4
+!MP,RSVX,4,1.e6   ! Permittivity of FR4 low res
+!MP,PERX,4,4.0   ! Permittivity of FR4 low res
+
+! standard kapton
+*do, il,1,nlayer,1
+kp = 1+(il-1)*4
+VSEL, S,,, 5
+VATT, 3, ,1
+*enddo
+
+! gas
+*do, il,1,nlayer,1
+ga = newvol-1+nlayer*2+il
+VSEL, S,,, ga
+VATT, 2, ,1
+*enddo
+
+! low res katpon
+*do, il,1,nlayer,1
+lk = newvol+(il-1)*2
+VSEL, S,,, lk
+VATT, 4, ,1
+*enddo
+
+! dlc
+*do, il,1,nlayer,1
+dl = newvol+1+(il-1)*2
+VSEL, S,,, dl
+VATT, 1, ,1
+*enddo
+
+VSEL,ALL
+VLIST,ALL
+
+
+! Voltage boundaries on the drift and induction plane
+ASEL, S, LOC, Z, -kapton1/2-kapton2/2
+DA, ALL, VOLT, 0
+*do, il,1,nlayer,1
+vo = il*200*drift+550*il
+ASEL, S, LOC, Z, drift+kapton1/2+dlc+(il-1)*thick
+DA, ALL, VOLT, -vo !(50 Volt 250 um 200 volt 1 mm 800 volt 4 mm da sommare a 550 V sui 50 um di Kapton)
+*enddo
+
+! Symmetry boundary conditions on the sides
+!select gas
+*do, il,1,nlayer,1
+ga = newvol-1+nlayer*2+il
+VSEL, S,,,ga
+ASLV, S
+ASEL, R, LOC, X, 0
+DA, ALL, SYMM
+VSEL, S,,,ga
+ASLV, S
+ASEL, R, LOC, X, +pitch/2
+DA, ALL, SYMM
+VSEL, S,,,ga
+ASLV, S
+ASEL, R, LOC, Y, 0
+DA, ALL, SYMM
+VSEL, S,,,ga
+ASLV, S
+ASEL, R, LOC, Y, +sqrt(3)*pitch/2
+DA, ALL, SYMM
+*enddo
+
+! Voltage boundary on the std kapton
+*do, il,1,nlayer,1
+kp = 1+(il-1)*4
+VSEL, S,,,kp
+ASLV, S
+ASEL, R, LOC, X, 0
+DA, ALL, SYMM
+VSEL, S,,,kp
+ASLV, S
+ASEL, R, LOC, X, +pitch/2
+DA, ALL, SYMM
+VSEL, S,,,kp
+ASLV, S
+ASEL, R, LOC, Y, 0
+DA, ALL, SYMM
+VSEL, S,,,kp
+ASLV, S
+ASEL, R, LOC, Y, +sqrt(3)*pitch/2
+DA, ALL, SYMM
+*enddo
+
+! Voltage boundary conditions on the dlc
+*do, il,1,nlayer,1
+dl = newvol+1+(il-1)*2
+vo = (il-1)*200*drift+550*il
+VSEL, S,,, dl
+ASLV, S
+DA, ALL, VOLT, -vo
+*enddo
+
+! Meshing options
+VSEL, S,,, 1, newvol-1+nlayer*3
+ASLV, S
+
+MSHKEY,0
+SMRT, 1
+!SMRT, 10
+VSEL,S,,,1
+*do, il,1,nlayer,1
+kp = 1+(il-1)*4
+VSEL,A,,,kp
+*enddo
+
+*do, il,1,nlayer,1
+ga = newvol-1+nlayer*2+il
+lk = newvol+(il-1)*2
+VSEL,A,,,ga
+VSEL,A,,,lk
+*enddo
+
+VMESH,ALL
+! VMESH,1,4
+
+! Solve the field
+/SOLU
+SOLVE   
+FINISH  
+
+! Display the solution
+/POST1  
+/EFACET,1   
+PLNSOL, VOLT,, 0
+
+! Write the solution to files
+/OUTPUT, PRNSOLMulti4, lis
+PRNSOL
+/OUTPUT
+
+/OUTPUT, NLISTMulti4, lis
+NLIST,,,,COORD
+/OUTPUT
+
+/OUTPUT, ELISTMulti4, lis
+ELIST
+/OUTPUT
+
+/OUTPUT, MPLISTMulti4, lis
+MPLIST
+/OUTPUT
+!VSEL, S,,, 1, newvol-1+nlayer*3
+
